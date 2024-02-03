@@ -1,1 +1,1 @@
-# Super-RES-H-ma-Projesi
+# Super-RES-Huma-Projesi
