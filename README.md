@@ -1,6 +1,4 @@
 # Super-RES-Huma-Projesi
-# Super-RES-Huma-Projesi
-
 
 ### Kurulum
 
