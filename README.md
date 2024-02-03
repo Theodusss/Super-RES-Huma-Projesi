@@ -1,6 +1,6 @@
 # Super-RES-Huma-Projesi
 
-### Kurulum
+# Kurulum
 
 1.Dosya konumu belirleme
 
@@ -8,7 +8,6 @@
     git clone https://github.com/xinntao/Real-ESRGAN.git
     cd Real-ESRGAN
     ```
-
 1. Bagimli paketleri yukleme
 
     ```bash
@@ -65,7 +64,7 @@ Diğer modeller için `-n` bağımsız değişkenini kullanabilirsiniz; örneği
 ! python inference_realesrgan_video.py -i inputs/video/video_ismi.mp4 -n realesr-animevideov3 -s 2 --suffix outx2
 ```
 
-# Download the result
+# Sonuçları indirme
 ```bash
 files.download('results/video_ismi_outx2.mp4')
 ```
