@@ -7,12 +7,22 @@ import os
 import shutil
 import subprocess
 import torch
+#-----------------------
+# RRDBNet mimarimizin ana kısmıı olusturur ve Real-ESRGANer modelimizin Generator kısmını oluşturur 
+#----------------------
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from basicsr.utils.download_util import load_file_from_url
 from os import path as osp
 from tqdm import tqdm
 
+#-----------------------
+# RealESRGANer görüntülerin kalitesini genel bağlamda artırır ve RRDBNET için wrapper görevi görür   
+#----------------------
 from realesrgan import RealESRGANer
+
+#-----------------------
+# SRVGGNetCompact ise mimarimizde karmaşıklığı ve model büyüklüğünü düşürerek Real-Time uygulamalara olanak sağlar 
+#----------------------
 from realesrgan.archs.srvgg_arch import SRVGGNetCompact
 
 try:
@@ -22,7 +32,7 @@ except ImportError:
     pip.main(['install', '--user', 'ffmpeg-python'])
     import ffmpeg
 
-
+# Video ile alakalı gerekli bilgiler alınır (resolution, FPS ve frame sayısı gibi)
 def get_video_meta_info(video_path):
     ret = {}
     probe = ffmpeg.probe(video_path)
@@ -35,12 +45,13 @@ def get_video_meta_info(video_path):
     ret['nb_frames'] = int(video_streams[0]['nb_frames'])
     return ret
 
-
+# Video daha küçük videolara bölünerek mimari için hazır hale getirilir. 
 def get_sub_video(args, num_process, process_idx):
     if num_process == 1:
         return args.input
     meta = get_video_meta_info(args.input)
     duration = int(meta['nb_frames'] / meta['fps'])
+    # num_process gpunun üzerindeki işlem sayısıdır bu veri kullanılarak kullanılan donanımın özelliklerine göre işlem yapılmaktadır.
     part_time = duration // num_process
     print(f'duration: {duration}, part_time: {part_time}')
     os.makedirs(osp.join(args.output, f'{args.video_name}_inp_tmp_videos'), exist_ok=True)
@@ -53,14 +64,14 @@ def get_sub_video(args, num_process, process_idx):
     subprocess.call(' '.join(cmd), shell=True)
     return out_path
 
-
+# görüntülerin farklı durumlarda okunmasını sağlar ve görüntüye gerekli işlemleri uygulayarak Modelimiz için hazır hale getirir  
 class Reader:
 
     def __init__(self, args, total_workers=1, worker_idx=0):
         self.args = args
         input_type = mimetypes.guess_type(args.input)[0]
         self.input_type = 'folder' if input_type is None else input_type
-        self.paths = []  # for image&folder type
+        self.paths = []  # resim ve dosya yoları 
         self.audio = None
         self.input_fps = None
         if self.input_type.startswith('video'):
@@ -70,11 +81,11 @@ class Reader:
                                                 loglevel='error').run_async(
                                                     pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
             meta = get_video_meta_info(video_path)
-            self.width = meta['width']
-            self.height = meta['height']
+            self.width = meta['width']   # görüntünün genişlik bilgisini döndürür ce self.height ile beraber resoluton değerini elde etmemızı sagla r
+            self.height = meta['height'] 
             self.input_fps = meta['fps']
-            self.audio = meta['audio']
-            self.nb_frames = meta['nb_frames']
+            self.audio = meta['audio'] # görüntü içindeki sesi dödürerek recomposing işleminden sonra auido embed edilir 
+            self.nb_frames = meta['nb_frames'] # görüntüde bulunan frame (kare) sayısını verr
 
         else:
             if self.input_type.startswith('image'):
@@ -92,23 +103,23 @@ class Reader:
             self.width, self.height = tmp_img.size
         self.idx = 0
 
-    def get_resolution(self):
+    def get_resolution(self): # çözünürlük değeri = heightx width 
         return self.height, self.width
 
-    def get_fps(self):
+    def get_fps(self): # saniye başına düşen kare sayısı 
         if self.args.fps is not None:
             return self.args.fps
         elif self.input_fps is not None:
             return self.input_fps
         return 24
 
-    def get_audio(self):
+    def get_audio(self):  # ses geri döndürülür 
         return self.audio
 
-    def __len__(self):
+    def __len__(self): # görüntün frame (kare) yani uzunluk değerini döndürür 
         return self.nb_frames
 
-    def get_frame_from_stream(self):
+    def get_frame_from_stream(self):  
         img_bytes = self.stream_reader.stdout.read(self.width * self.height * 3)  # 3 bytes for one pixel
         if not img_bytes:
             return None
